@@ -1,6 +1,6 @@
 zabbix_export:
   version: '6.0'
-  date: '2025-06-11T18:12:49Z'
+  date: '2025-06-11T20:24:15Z'
   groups:
     - uuid: a571c0d144b14fd4a87a9d9b2aa9fcd6
       name: Templates/Applications
@@ -845,6 +845,13 @@ zabbix_export:
           key: pvc.key
           delay: '0'
           item_prototypes:
+            - uuid: 03d68a338287485ca5e608c2055cf368
+              name: 'PVC {#PVC} - NAMESPACE {#NAMESPACE} - Usage in %'
+              type: CALCULATED
+              key: 'calculate[{#PVC} - {#NAMESPACE}]'
+              value_type: FLOAT
+              units: '%'
+              params: '100 * last(//pvc[{#PVC} - {#NAMESPACE} - Usage]) / last(//pvc[{#PVC} - {#NAMESPACE} - Total])'
             - uuid: b6184c14565c471db8eac83910fe6ace
               name: 'PVC {#PVC} - NAMESPACE {#NAMESPACE} - Space Available'
               type: DEPENDENT
