@@ -1,6 +1,6 @@
 zabbix_export:
   version: '6.0'
-  date: '2025-06-11T20:24:15Z'
+  date: '2025-06-11T20:51:00Z'
   groups:
     - uuid: a571c0d144b14fd4a87a9d9b2aa9fcd6
       name: Templates/Applications
@@ -253,6 +253,13 @@ zabbix_export:
           tags:
             - tag: component
               value: raw
+        - uuid: c9eb4dbd3d044953821c8151c5093f6a
+          name: 'Kubernetes: get nodes metrics'
+          type: HTTP_AGENT
+          key: nodes.metrics
+          trends: '0'
+          value_type: TEXT
+          url: 'http://{HOST.CONN}:{$PORT_NODE_METRICS}/metrics'
       discovery_rules:
         - uuid: 5f70768ebe62429a96e17576dd767382
           name: 'Container memory discovery'
@@ -839,6 +846,111 @@ zabbix_export:
                   operator: NOT_LIKE
                   value: bucket
                   discover: DISCOVER
+        - uuid: d69a9360df8b4d4095fae7fa5d13fc4c
+          name: 'Get Nodes Metrics Filesystem'
+          type: DEPENDENT
+          key: node.metrics.filesystem
+          delay: '0'
+          item_prototypes:
+            - uuid: 36972258443342db88985dcbfc95082c
+              name: 'Filesystem {#MOUNTPOINT} - Space Used in %'
+              type: CALCULATED
+              key: 'filesystem.used.percent[{#MOUNTPOINT} - {#DEVICE}]'
+              value_type: FLOAT
+              units: '%'
+              params: '100 * last(//get.filesystem.used[{#MOUNTPOINT} - {#DEVICE}]) / last(//get.filesystem.total[{#MOUNTPOINT} - {#DEVICE}])'
+            - uuid: 350f23b8e78f40c3b6c0672052e47666
+              name: 'Filesystem {#MOUNTPOINT} - Space Free'
+              type: DEPENDENT
+              key: 'get.filesystem.free[{#MOUNTPOINT} - {#DEVICE}]'
+              delay: '0'
+              units: B
+              preprocessing:
+                - type: PROMETHEUS_PATTERN
+                  parameters:
+                    - 'node_filesystem_free_bytes{device="{#DEVICE}", mountpoint="{#MOUNTPOINT}"}'
+                    - value
+                    - ''
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 3h
+              master_item:
+                key: nodes.metrics
+            - uuid: b48b04a2ff5b431aaeca5d58faca8b40
+              name: 'Filesystem {#MOUNTPOINT} - Space Total'
+              type: DEPENDENT
+              key: 'get.filesystem.total[{#MOUNTPOINT} - {#DEVICE}]'
+              delay: '0'
+              units: B
+              preprocessing:
+                - type: PROMETHEUS_PATTERN
+                  parameters:
+                    - 'node_filesystem_size_bytes{device="{#DEVICE}", mountpoint="{#MOUNTPOINT}"}'
+                    - value
+                    - ''
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 3h
+              master_item:
+                key: nodes.metrics
+            - uuid: aed82058c65347b591ceb99e382d85d8
+              name: 'Filesystem {#MOUNTPOINT} - Space Used'
+              type: DEPENDENT
+              key: 'get.filesystem.used[{#MOUNTPOINT} - {#DEVICE}]'
+              delay: '0'
+              units: B
+              preprocessing:
+                - type: PROMETHEUS_PATTERN
+                  parameters:
+                    - 'node_filesystem_used_bytes{device="{#DEVICE}", mountpoint="{#MOUNTPOINT}"}'
+                    - value
+                    - ''
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 3h
+              master_item:
+                key: nodes.metrics
+          master_item:
+            key: nodes.metrics
+          preprocessing:
+            - type: PROMETHEUS_TO_JSON
+              parameters:
+                - '{__name__=~"node_filesystem_size_bytes", mountpoint=~".*"}'
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  var lookup = {},
+                      result = [];
+                  
+                  JSON.parse(value).forEach(function(item) {
+                      if (item.name === 'node_filesystem_size_bytes') {
+                          var mount = item.labels.mountpoint;
+                          var dev = item.labels.device;
+                          var fs = item.labels.fstype;
+                  
+                          if (!mount || !dev || !fs) {
+                              return;
+                          }
+                  
+                          var key = mount + '/' + dev + '/' + fs;
+                          if (lookup[key]) {
+                              return;
+                          }
+                          lookup[key] = 1;
+                  
+                          result.push({
+                              '{#MOUNTPOINT}': mount,
+                              '{#DEVICE}': dev,
+                              '{#FSTYPE}': fs
+                          });
+                      }
+                  });
+                  
+                  return JSON.stringify(result);
+                  
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 3h
         - uuid: 41fe3728dfaa4f3f9fda108254fc95ea
           name: PVC
           type: DEPENDENT
@@ -953,6 +1065,7 @@ zabbix_export:
           value: kubernetes
       macros:
         - macro: '{$KUBE.API.TOKEN}'
+          value: eyJhbGciOiJSUzI1NiIsImtpZCI6Il9mOExTa1FoT0RwVTNxRHpoQ3dnOThYZl9wVDZEb1p5MzhndVJVN29kSHMifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJrdWJlLXN5c3RlbSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VjcmV0Lm5hbWUiOiJ6YWJiaXgtdG9rZW4iLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoia3ViZWxldC1yZWFkZXIiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiJkMDFkMTliMC1mOTc4LTQ0YWMtYmM2NS1mMjhmODgyM2RjZjgiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6a3ViZS1zeXN0ZW06a3ViZWxldC1yZWFkZXIifQ.XvLnC62a-PqnqS9SQhxtTeiVXg4xc0z9hlTcGzltB6v0jLCX1dp-XUkoTxB5G9Nqh5DeJKcvgQ-9-U7QttGYSaYqNp4D26QJ4tCC59-3rzVKr4zCutA83TYvtCUWEHi_t_7SSGlb1ck1vfewbi1dCMiBpHSpSUxZFwuVDuaLdIm-ioj9nj7hHWt9eXrocomnlnpTmdpF_u95nhPUPM8PskqHlgGRSq6vMLEP5R9EOtNmUXR_5v8n-HvIRMf3g5pDaQ2yyvkncapl6_lj3eACRzYHMOjBPKVOdvGQH7gvOfD5CVlRUY3LzA81c6nquV0-pfpje031aIvh6sR5iFCrsA
           description: 'Service account bearer token.'
         - macro: '{$KUBE.KUBELET.CADVISOR.ENDPOINT}'
           value: /metrics/cadvisor
@@ -966,6 +1079,8 @@ zabbix_export:
         - macro: '{$KUBE.KUBELET.URL}'
           value: 'https://localhost:10250'
           description: 'Kubernetes Kubelet instance URL.'
+        - macro: '{$PORT_NODE_METRICS}'
+          value: '30800'
       dashboards:
         - uuid: ecaddf40146948668ec7c75505fd8af8
           name: 'Kubelet overview'
