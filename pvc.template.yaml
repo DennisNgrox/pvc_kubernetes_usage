@@ -1,6 +1,6 @@
 zabbix_export:
   version: '6.0'
-  date: '2025-06-11T17:47:10Z'
+  date: '2025-06-11T18:12:49Z'
   groups:
     - uuid: a571c0d144b14fd4a87a9d9b2aa9fcd6
       name: Templates/Applications
@@ -845,10 +845,46 @@ zabbix_export:
           key: pvc.key
           delay: '0'
           item_prototypes:
-            - uuid: 4bbe9de760c346c68f70232c528ac94c
-              name: 'PVC {#PVC} - NAMESPACE {#NAMESPACE}'
+            - uuid: b6184c14565c471db8eac83910fe6ace
+              name: 'PVC {#PVC} - NAMESPACE {#NAMESPACE} - Space Available'
               type: DEPENDENT
-              key: 'pvc[{#PVC} - {#NAMESPACE}]'
+              key: 'pvc[{#PVC} - {#NAMESPACE} - Available]'
+              delay: '0'
+              value_type: FLOAT
+              units: B
+              preprocessing:
+                - type: PROMETHEUS_PATTERN
+                  parameters:
+                    - 'kubelet_volume_stats_available_bytes{namespace="{#NAMESPACE}", persistentvolumeclaim="{#PVC}"}'
+                    - value
+                    - ''
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 3h
+              master_item:
+                key: kube.kubelet.metrics
+            - uuid: ab33d557e32544a29edd4adb24370437
+              name: 'PVC {#PVC} - NAMESPACE {#NAMESPACE} - Space Total'
+              type: DEPENDENT
+              key: 'pvc[{#PVC} - {#NAMESPACE} - Total]'
+              delay: '0'
+              value_type: FLOAT
+              units: B
+              preprocessing:
+                - type: PROMETHEUS_PATTERN
+                  parameters:
+                    - 'kubelet_volume_stats_capacity_bytes{namespace="{#NAMESPACE}", persistentvolumeclaim="{#PVC}"}'
+                    - value
+                    - ''
+                - type: DISCARD_UNCHANGED_HEARTBEAT
+                  parameters:
+                    - 3h
+              master_item:
+                key: kube.kubelet.metrics
+            - uuid: 4bbe9de760c346c68f70232c528ac94c
+              name: 'PVC {#PVC} - NAMESPACE {#NAMESPACE} - Space Usage'
+              type: DEPENDENT
+              key: 'pvc[{#PVC} - {#NAMESPACE} - Usage]'
               delay: '0'
               value_type: FLOAT
               units: B
@@ -910,7 +946,6 @@ zabbix_export:
           value: kubernetes
       macros:
         - macro: '{$KUBE.API.TOKEN}'
-          value: eyJhbGciOiJSUzI1NiIsImtpZCI6Il9mOExTa1FoT0RwVTNxRHpoQ3dnOThYZl9wVDZEb1p5MzhndVJVN29kSHMifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJrdWJlLXN5c3RlbSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VjcmV0Lm5hbWUiOiJ6YWJiaXgtdG9rZW4iLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoia3ViZWxldC1yZWFkZXIiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiJkMDFkMTliMC1mOTc4LTQ0YWMtYmM2NS1mMjhmODgyM2RjZjgiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6a3ViZS1zeXN0ZW06a3ViZWxldC1yZWFkZXIifQ.XvLnC62a-PqnqS9SQhxtTeiVXg4xc0z9hlTcGzltB6v0jLCX1dp-XUkoTxB5G9Nqh5DeJKcvgQ-9-U7QttGYSaYqNp4D26QJ4tCC59-3rzVKr4zCutA83TYvtCUWEHi_t_7SSGlb1ck1vfewbi1dCMiBpHSpSUxZFwuVDuaLdIm-ioj9nj7hHWt9eXrocomnlnpTmdpF_u95nhPUPM8PskqHlgGRSq6vMLEP5R9EOtNmUXR_5v8n-HvIRMf3g5pDaQ2yyvkncapl6_lj3eACRzYHMOjBPKVOdvGQH7gvOfD5CVlRUY3LzA81c6nquV0-pfpje031aIvh6sR5iFCrsA
           description: 'Service account bearer token.'
         - macro: '{$KUBE.KUBELET.CADVISOR.ENDPOINT}'
           value: /metrics/cadvisor
